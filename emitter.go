@@ -54,15 +54,7 @@ func NewEmitter(opts *Options) *Emitter {
 		if opts.Host != "" {
 			host = opts.Host
 		}
-
-		initRedisConnPool(&emitter, opts)
-
-		redisURI := fmt.Sprintf("%s:%d", host, port)
-		emitter.redis = redis.NewClient(&redis.Options{
-			Addr:     redisURI,
-			Password: opts.Password,
-			DB:       opts.DB,
-		})
+		emitter.redis = newPool(host)
 	}
 
 	emitter.prefix = "socket.io"
@@ -115,15 +107,21 @@ func (e *Emitter) Emit(data ...interface{}) (*Emitter, error) {
 	if len(e.rooms) > 0 {
 		for _, room := range e.rooms {
 			chnRoom := fmt.Sprintf("%s%s#", chn, room)
-			e.redis.Publish(chnRoom, string(buf))
+			e.Publish(chnRoom, string(buf))
 		}
 	} else {
-		e.redis.Publish(chn, string(buf))
+		e.Publish(chn, string(buf))
 	}
 
 	e.rooms = make([]string, 0, 0)
 	e.flags = make(map[string]interface{})
 	return e, nil
+}
+
+func (e *Emitter) Publish(channel string, value interface{}) {
+	c := e.redis.Get()
+	defer c.Close()
+	c.Do("PUBLISH", channel, value)
 }
 
 // In Limit emission to a certain `room`
@@ -197,31 +195,15 @@ func hasBin(data ...interface{}) bool {
 	return false
 }
 
-func initRedisConnPool(emitter *Emitter, opts Options) {
-	if opts.Host == "" {
-		panic("Missing redis `host`")
-	}
-	emitter.redis = newPool(opts)
-}
-
-func newPool(opts Options) *redis.Pool {
+func newPool(host string) *redis.Pool {
 	return &redis.Pool{
 		MaxIdle:   redisPoolMaxIdle,
 		MaxActive: redisPoolMaxActive,
 		Dial: func() (redis.Conn, error) {
-			c, err := redis.Dial("tcp", opts.Host)
+			c, err := redis.Dial("tcp", host)
 			if err != nil {
 				return nil, err
 			}
-
-			if opts.Password != "" {
-				if _, err := c.Do("AUTH", opts.Password); err != nil {
-					c.Close()
-					return nil, err
-				}
-				return c, err
-			}
-
 			return c, err
 		},
 		TestOnBorrow: func(c redis.Conn, t time.Time) error {
