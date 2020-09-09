@@ -15,8 +15,8 @@ const (
 	gBinaryEvent = 5
 	uid          = "emitter"
 
-	redisPoolMaxIdle   = 80
-	redisPoolMaxActive = 12000 // max number of connections
+	// https://pkg.go.dev/github.com/gomodule/redigo/redis?tab=doc
+	redisPoolMaxIdle = 1000
 )
 
 // Options ...
@@ -191,8 +191,7 @@ func hasBin(data ...interface{}) bool {
 
 func newPool(host string) *redis.Pool {
 	return &redis.Pool{
-		MaxIdle:   redisPoolMaxIdle,
-		MaxActive: redisPoolMaxActive,
+		MaxIdle: redisPoolMaxIdle,
 		Dial: func() (redis.Conn, error) {
 			c, err := redis.Dial("tcp", host)
 			if err != nil {
