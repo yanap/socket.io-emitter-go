@@ -4,7 +4,7 @@ Go implementation of socket.io-emitter
 ## Install
 
 ```sh
-$ go get github.com/stackcats/socket.io-emitter-go
+$ go get github.com/yanap/socket.io-emitter-go
 ```
 
 ## Example
