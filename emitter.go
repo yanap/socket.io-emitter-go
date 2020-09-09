@@ -31,13 +31,11 @@ type Options struct {
 	Key string
 	// unix domain socket to connect to redis on ("/tmp/redis.sock")
 	Socket string
-	// redis pool
-	Redis *redis.Pool
 }
 
 // Emitter Socket.IO redis base emitter
 type Emitter struct {
-	redis  *redis.Pool
+	pool   *redis.Pool
 	prefix string
 	rooms  []string
 	flags  map[string]interface{}
@@ -47,15 +45,11 @@ type Emitter struct {
 func NewEmitter(opts *Options) *Emitter {
 	emitter := &Emitter{}
 
-	if opts.Redis != nil {
-		emitter.redis = opts.Redis
-	} else {
-		host := "127.0.0.1:6379"
-		if opts.Host != "" {
-			host = opts.Host
-		}
-		emitter.redis = newPool(host)
+	host := "127.0.0.1:6379"
+	if opts.Host != "" {
+		host = opts.Host
 	}
+	emitter.pool = newPool(host)
 
 	emitter.prefix = "socket.io"
 	if opts.Key != "" {
@@ -71,8 +65,8 @@ func NewEmitter(opts *Options) *Emitter {
 
 // Close release redis client
 func (e *Emitter) Close() {
-	if e.redis != nil {
-		e.redis.Close()
+	if e.pool != nil {
+		e.pool.Close()
 	}
 }
 
@@ -119,7 +113,7 @@ func (e *Emitter) Emit(data ...interface{}) (*Emitter, error) {
 }
 
 func (e *Emitter) Publish(channel string, value interface{}) {
-	c := e.redis.Get()
+	c := e.pool.Get()
 	defer c.Close()
 	c.Do("PUBLISH", channel, value)
 }
